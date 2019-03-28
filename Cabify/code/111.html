@@ -1,0 +1,591 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Latitude and Longitude of a Point</title>
+<meta name="description" content="Find the latitude and longitude of a point using Apple Maps.">
+<meta name="keywords" content="latitude, longitude, Apple maps, get latitude and longitude">
+<link rel="canonical" href="https://getlatlong.net/" />
+<link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.0/cookieconsent.min.css" />
+<script src="//cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.0/cookieconsent.min.js"></script>
+<script>
+window.addEventListener("load", function(){
+window.cookieconsent.initialise({
+  "palette": {
+    "popup": {
+      "background": "#edeff5",
+      "text": "#838391"
+    },
+    "button": {
+      "background": "#4b81e8"
+    }
+  },
+  "content": {
+    "href": "?r=f&st=privacy"
+  }
+})});
+</script>
+<script src="https://cdn.apple-mapkit.com/mk/5.15.0/mapkit.js"></script>
+<script>
+// Latitude and Longitude math routines are from: http://www.fcc.gov/mb/audio/bickel/DDDMMSS-decimal.html
+var map = null;
+var latsgn = 1;
+var lgsgn = 1;
+var marker = null;
+var ls='';
+var lm='';
+var ld='';
+var lgs='';
+var lgm='';
+var lgd='';
+var mArray = [];  
+var lastWindowOpen = null;
+var pointCounter = 1;
+var doZoom = true;
+
+var CALLOUT_OFFSET = new DOMPoint(-148, -130);
+var pntAnnotationCallout = {
+    calloutElementForAnnotation: function(annotation) {
+        return calloutForPointAnnotation(annotation);
+    },
+        
+    calloutAnchorOffsetForAnnotation: function(annotation, element) {
+        return CALLOUT_OFFSET;
+    }   
+};
+
+function xz() {
+    var ll = new mapkit.Coordinate(20.0, -10.0);
+    mapkit.init({
+    authorizationCallback: function(done) {
+        done("eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ikw1V0Y5Rk1YMzYifQ.eyJpYXQiOjE1MzA0MjcwMTAuNzk5LCJpc3MiOiI3NEtLNUQ3Nk5CIiwib3JpZ2luIjoiaHR0cHM6Ly9nZXRsYXRsb25nLm5ldCJ9.4amsVpA2ejUqgP-YlNgK23qzhg9CtPgXcQFea5I8yPiiiKhQXmW_cH1imvbDprX-TuI6YFsd6puJx0LCgZwUWA");
+    }});
+    
+    var attributes = {
+        center : new mapkit.Coordinate(20.0, -10.0),
+        showsUserLocationControl: true,
+        showsScale: mapkit.FeatureVisibility.Visible,
+        showsMapTypeControl: true,
+        showsZoomControl: true
+    };
+
+    map = new mapkit.Map("map", attributes);
+    map.element.addEventListener("click", function(event) {
+        if(!event.shiftKey) {
+            return;
+        }
+        var coordinate = map.convertPointOnPageToCoordinate(new DOMPoint(event.pageX, event.pageY));
+        fc(coordinate) ;
+        computepos(coordinate);
+    });
+
+    marker = new mapkit.MarkerAnnotation(map.center, {
+            draggable: true,
+            selected: true,
+            title: "Drag me"
+    });
+
+    marker.addEventListener("drag-start", function(event) {
+        event.target.title = "";
+    });
+
+    marker.addEventListener("drag-end", function() {
+        computepos(marker.coordinate);
+        map.setCenterAnimated(marker.coordinate);
+    });
+    map.addAnnotation(marker);
+    window.addEventListener('resize', sD, false);
+    sD();
+}
+
+function computepos (point)
+{
+var latA = Math.abs(Math.round(point.latitude * 1000000.));
+var lonA = Math.abs(Math.round(point.longitude * 1000000.));
+if(point.latitude < 0)
+{
+  var ls = '-' + Math.floor((latA / 1000000)).toString();
+}
+else
+{
+  var ls = Math.floor((latA / 1000000)).toString();
+}
+var lm = Math.floor(((latA/1000000) - Math.floor(latA/1000000)) * 60).toString();
+var ld = ( Math.floor(((((latA/1000000) - Math.floor(latA/1000000)) * 60) - Math.floor(((latA/1000000) - Math.floor(latA/1000000)) * 60)) * 100000) *60/100000 ).toString();
+if(point.longitude < 0)
+{
+  var lgs = '-' + Math.floor((lonA / 1000000)).toString();
+}
+else
+{
+  var lgs = Math.floor((lonA / 1000000)).toString();
+}
+var lgm = Math.floor(((lonA/1000000) - Math.floor(lonA/1000000)) * 60).toString();
+var lgd = ( Math.floor(((((lonA/1000000) - Math.floor(lonA/1000000)) * 60) - Math.floor(((lonA/1000000) - Math.floor(lonA/1000000)) * 60)) * 100000) *60/100000 ).toString();
+document.getElementById("latbox").value=point.latitude.toFixed(6);
+document.getElementById("latboxm").value=ls;
+document.getElementById("latboxmd").value=lm;
+document.getElementById("latboxms").value=ld;
+document.getElementById("lonbox").value=point.longitude.toFixed(6);
+document.getElementById("lonboxm").value=lgs;
+document.getElementById("lonboxmd").value=lgm;
+document.getElementById("lonboxms").value=lgd;
+}
+
+function sD() {
+cH = document.documentElement.clientHeight;
+cW = document.documentElement.clientWidth;
+mW = cW - 227;
+mWs = mW.toString() + 'px';
+document.getElementById('map').style.width = mWs;
+
+mH = 500;
+mHs = mH.toString() + 'px';
+document.getElementById('map').style.height = mHs;
+}
+
+function showAddress() {
+    var address = document.getElementById("addr").value;
+    if ((address.localeCompare('') == 0) || (address.localeCompare('Enter Place or Address') == 0)) {alert('Place address not entered.'); return false;}
+    var geocoder = new mapkit.Geocoder();
+    geocoder.lookup(address, function(error, data) {
+        if (data.results[0]) {
+            //map.mapType = mapkit.Map.MapTypes.Hybrid;
+      var coordinate =  data.results[0].coordinate;
+            var span = new mapkit.CoordinateSpan(0.08, 0.08);
+            var region = new mapkit.CoordinateRegion(coordinate, span);
+            map.setRegionAnimated(region);
+            map.setCenterAnimated(coordinate);
+            marker.coordinate = coordinate;
+            clearReadouts();
+            computepos(coordinate);
+            doZoom = false;
+        } else {
+            alert("Geocode was not successful for the following reason: " + status);
+        }
+    });
+}
+
+function showLatLong() {
+var latitude = document.getElementById("latbox1").value;
+var longitude = document.getElementById("lonbox1").value;
+if ((latitude.localeCompare('') == 0) || (longitude.localeCompare('') == 0)) {alert('Latitude and/or Longitude not entered.'); return false;}
+if (isNaN(latitude)) {alert(' Latitude must be a number. e.g. Use +/- instead of N/S'); return false;}
+if (isNaN(longitude)) {alert(' Longitude must be a number.  e.g. Use +/- instead of E/W'); return false;}
+
+latitude1 = Math.abs( Math.round(latitude * 1000000.));
+if(latitude1 > (90 * 1000000)) { alert(' Latitude must be between -90 to 90. ');  document.getElementById("latbox1").value=''; return;}
+longitude1 = Math.abs( Math.round(longitude * 1000000.));
+if(longitude1 > (180 * 1000000)) { alert(' Longitude must be between -180 to 180. ');  document.getElementById("lonbox1").value='';  return;}
+
+var fn = Function("var coordinate = new mapkit.Coordinate(" + latitude + "," + longitude + "); fc(coordinate); computepos(coordinate);");
+fn();
+}
+
+function showLatLong1() {
+var latitude = document.getElementById("latbox1m").value;
+var latitudem = document.getElementById("latbox1md").value;
+var latitudes = document.getElementById("latbox1ms").value;
+var longitude = document.getElementById("lonbox1m").value;
+var longitudem = document.getElementById("lonbox1md").value;
+var longitudes = document.getElementById("lonbox1ms").value;
+
+if ((latitude.localeCompare('') == 0) || (longitude.localeCompare('') == 0)) {alert('Latitude and/or Longitude not entered.'); return false;}
+if (isNaN(latitude)) {alert(' Latitude must be a number. e.g. Use +/- instead of N/S'); return false;}
+if (isNaN(latitudem)) {alert(' Latitude must be a number. e.g. Use +/- instead of N/S'); return false;}
+if (isNaN(latitudes)) {alert(' Latitude must be a number. e.g. Use +/- instead of N/S'); return false;}
+if (isNaN(longitude)) {alert(' Longitude must be a number.  e.g. Use +/- instead of E/W'); return false;}
+if (isNaN(longitudem)) {alert(' Longitude must be a number.  e.g. Use +/- instead of E/W'); return false;}
+if (isNaN(longitudes)) {alert(' Longitude must be a number.  e.g. Use +/- instead of E/W'); return false;}
+
+if (latitude.indexOf('-') < 0){latsgn = 1;}else{latsgn = -1;}
+alat = Math.abs( Math.round(latitude * 1000000.));
+if(alat > (90 * 1000000)) { alert(' Degrees Latitude must be between -90 to 90. ');  document.getElementById("latbox1m").value=''; document.getElementById("latbox1md").value=''; document.getElementById("latbox1ms").value=''; return; }
+latitudem = Math.abs(Math.round(latitudem * 1000000.)/1000000);  //integer
+absmlat = Math.abs(Math.round(latitudem * 1000000.));  //integer
+if(absmlat >= (60 * 1000000)) {  alert(' Minutes Latitude must be between 0 to 59. ');  document.getElementById("latbox1md").value=''; document.getElementById("latbox1ms").value=''; return;}
+latitudes = Math.abs(Math.round(latitudes * 1000000.)/1000000);
+absslat = Math.abs(Math.round(latitudes * 1000000.));
+if(absslat > (59.99999999 * 1000000)) {  alert(' Seconds Latitude must be between 0 and 59.99. '); document.getElementById("latbox1ms").value=''; return; }
+
+if (longitude.indexOf('-') < 0){lgsgn = 1;}else{lgsgn = -1;}
+alon = Math.abs( Math.round(longitude * 1000000.));
+if(alon > (180 * 1000000)) {  alert(' Degrees Longitude must be between -180 to 180. '); document.getElementById("lonbox1m").value=''; document.getElementById("lonbox1md").value=''; document.getElementById("lonbox1ms").value=''; return;}
+longitudem = Math.abs(Math.round(longitudem * 1000000.)/1000000);
+absmlon = Math.abs(Math.round(longitudem * 1000000));
+if(absmlon >= (60 * 1000000))   {  alert(' Minutes Longitude must be between 0 to 59. '); document.getElementById("lonbox1md").value=''; document.getElementById("lonbox1ms").value='';   return;}
+longitudes = Math.abs(Math.round(longitudes * 1000000.)/1000000);
+absslon = Math.abs(Math.round(longitudes * 1000000.));
+if(absslon > (59.99999999 * 1000000)) {  alert(' Seconds Longitude must be between 0 and 59.99. '); document.getElementById("lonbox1ms").value=''; return;}
+
+latitude = Math.round(alat + (absmlat/60.) + (absslat/3600.) ) * latsgn/1000000;
+longitude = Math.round(alon + (absmlon/60) + (absslon/3600) ) * lgsgn/1000000;
+
+var fn = Function("var coordinate = new mapkit.Coordinate(" + latitude + "," + longitude + "); fc(coordinate); computepos(coordinate);");
+fn();
+}
+
+function fc(coordinate)
+{
+    gC(coordinate);
+    var annotation = new mapkit.MarkerAnnotation(coordinate, {
+        draggable: true,
+        callout: pntAnnotationCallout,
+        selected: false,
+        color: "#3380ff",
+        title: 'Point '  + pointCounter
+    });
+    map.addAnnotation(annotation);
+    mArray[mArray.length] = annotation;
+    annotation.addEventListener("drag-start", function(event) {});
+    annotation.addEventListener("drag-end", function() {
+        modifyMarker(annotation)
+        computepos(annotation.coordinate);
+    });
+    map.setCenterAnimated(annotation.coordinate);
+    pointCounter++;
+}
+
+function rL()
+{
+    if (mArray.length > 0) {
+        var annotation = mArray[mArray.length - 1];
+    mArray.splice(mArray.length - 1, 1 );
+        map.removeAnnotation(annotation);
+    clearReadouts();
+    }
+}
+
+function rL1(annotation)
+{
+    if (annotation) {
+        removeMarker(annotation);
+        map.removeAnnotation(annotation);
+  }
+  lastWindowOpen=null;
+}
+
+function removeMarker(annotation) {
+    if (mArray.length > 0) {
+      for (i = 0; i < mArray.length; i++) {
+        if (mArray[i] === annotation) {
+        mArray.splice(i,1);
+        clearReadouts();
+        }
+    }
+  }
+}
+
+function  modifyMarker(annotation) {
+    if (mArray.length > 0) {
+      for (i = 0; i < mArray.length; i++) {
+        if (mArray[i] === annotation) {
+            mArray[i].coordinate.latitude = annotation.coordinate.latitude;
+            mArray[i].coordinate.longitude = annotation.coordinate.longitude;
+        }
+    }
+  }
+}
+
+function gC(ll){
+var latA = Math.abs(Math.round(ll.latitude * 1000000.));
+var lonA = Math.abs(Math.round(ll.longitude * 1000000.));
+if(ll.latitude < 0)
+{
+  var tls = '-' + Math.floor((latA / 1000000)).toString();
+}
+else
+{
+  var tls = Math.floor((latA / 1000000)).toString();
+}
+var tlm = Math.floor(((latA/1000000) - Math.floor(latA/1000000)) * 60).toString();
+var tld = ( Math.floor(((((latA/1000000) - Math.floor(latA/1000000)) * 60) - Math.floor(((latA/1000000) - Math.floor(latA/1000000)) * 60)) * 100000) *60/100000 ).toString();
+ls = tls.toString();
+lm = tlm.toString();
+ld = tld.toString();
+
+if(ll.longitude < 0)
+{
+  var tlgs = '-' + Math.floor((lonA / 1000000)).toString();
+}
+else
+{
+  var tlgs = Math.floor((lonA / 1000000)).toString();
+}
+var tlgm = Math.floor(((lonA/1000000) - Math.floor(lonA/1000000)) * 60).toString();
+var tlgd = ( Math.floor(((((lonA/1000000) - Math.floor(lonA/1000000)) * 60) - Math.floor(((lonA/1000000) - Math.floor(lonA/1000000)) * 60)) * 100000) *60/100000 ).toString();
+lgs = tlgs.toString();
+lgm = tlgm.toString();
+lgd = tlgd.toString();
+}
+
+function reset() {
+    var annotations = map.annotations;
+    map.removeAnnotations(annotations);
+    clearReadouts();
+
+    var coordinate = new mapkit.Coordinate(20.0, -10.0);
+    var span = new mapkit.CoordinateSpan(90.0, 180.0);
+    var region = new mapkit.CoordinateRegion(coordinate, span);
+    map.setRegionAnimated(region);
+    map.setCenterAnimated(coordinate);
+
+    marker = new mapkit.MarkerAnnotation(coordinate, {
+            draggable: true,
+            selected: true,
+            title: "Drag me"
+    });
+    marker.addEventListener("drag-start", function(event) {
+        event.target.title = "";
+    });
+    marker.addEventListener("drag-end", function() {
+        if (doZoom) {
+            map.setCenterAnimated(marker.coordinate);
+            var span = new mapkit.CoordinateSpan(0.24, 0.24);
+            var region = new mapkit.CoordinateRegion(marker.coordinate, span);
+            map.setRegionAnimated(region);
+            doZoom = false;
+        }
+        computepos(marker.coordinate);
+    });
+    map.addAnnotation(marker);
+
+    doZoom = true;
+    lastWindowOpen=null;
+    pointCounter = 1
+}
+
+function reset1() {
+    marker.coordinate = map.center;
+    clearReadouts();
+}
+
+function calloutForPointAnnotation(annotation) {
+    lastWindowOpen = annotation;
+    gC(annotation.coordinate);
+    computepos(annotation.coordinate);
+    
+    var div = document.createElement("div");
+    div.className = "pnt";
+    var title = div.appendChild(document.createElement("h1"));
+    title.textContent = annotation.title;
+
+    var section = div.appendChild(document.createElement("section"));
+
+    var l = section.appendChild(document.createElement("p"));
+    var lat = annotation.coordinate.latitude;
+    var lat1 = lat.toFixed(6);
+    var lng = annotation.coordinate.longitude;
+    var lng1 = lng.toFixed(6);
+    l.textContent = lat1 + "," + lng1;
+
+    var l1 = section.appendChild(document.createElement("p"));
+    var dms = "Lat: " + ls +  "° " + lm +  "' " + ld + "''";
+    l1.textContent = dms;
+
+    var l2 = section.appendChild(document.createElement("p"));
+    dms = "Long: " + lgs +  "° " + lgm +  "' " + lgd + "''";
+    l2.textContent = dms;
+    
+    var link = section.appendChild(document.createElement("p"));
+    var a = link.appendChild(document.createElement("a"));
+    a.href = "javascript:rL1(lastWindowOpen);";
+    a.textContent = "Remove Marker";
+
+    return div;
+}
+
+function clearReadouts () {
+    document.getElementById("latbox").value='';
+    document.getElementById("latboxm").value='';
+    document.getElementById("latboxmd").value='';
+    document.getElementById("latboxms").value='';
+    document.getElementById("lonbox").value='';
+    document.getElementById("lonboxm").value='';
+    document.getElementById("lonboxmd").value='';
+    document.getElementById("lonboxms").value='';
+
+    document.getElementById("latbox1").value='';
+    document.getElementById("latbox1m").value='';
+    document.getElementById("latbox1md").value='';
+    document.getElementById("latbox1ms").value='';
+    document.getElementById("lonbox1").value='';
+    document.getElementById("lonbox1m").value='';
+    document.getElementById("lonbox1md").value='';
+    document.getElementById("lonbox1ms").value='';
+
+}
+</script>
+<style>
+html {text-align: center}
+body {padding: 0; margin: 0 auto; color: #000000; font-family: arial, helvetica}
+img {border:0;padding:0;margin:0}
+td {color: #000000; font-family: arial, helvetica}
+h1 {font-size: 1.6em;}
+h3 {font-size: medium}
+a:link {color: #0000cc; text-decoration: underline}
+a:active {color: #cc0000; text-decoration: underline}
+a:visited {color: #000033; text-decoration: underline}
+a:hover {color: #cc0000; text-decoration: underline}
+#h {margin: 0 15px 0 15px}
+#l {float: left}
+#nav {padding: 16px 0 5px 0;font-weight:bold; text-align:right}
+#nav a {text-decoration: none}
+#nav a:hover {text-decoration: underline}
+#nav a:active {text-decoration: underline}
+.n0 {margin-bottom: 3px; color: #000}
+.n3 {margin-bottom: 3px; color: #000}
+#h0 {display: block; background-color: #666666; height: 4px; margin-top: 5px; margin-bottom:3px;}
+#o {margin:0;padding:0}
+#content {margin:15px; text-align:left;padding:0}
+#bc {color: #444; margin:10px 0 10px 20px; text-align:left}
+#bc a:link, #bc a:visited {color: #444; text-decoration: none}
+#bc a:hover {color: #222; text-decoration: underline}
+.lb0 {margin:0 15px 10px 15px; padding:0; border: #888 1px solid; background-color: #f8f8f8; text-align: left}
+.as {width: 160px; background-color: #fff; padding:0 20px 0 0px}
+.cs {line-height: 120%}
+#b {padding:10px;font-size:13px;color:#000;margin-top:10px;clear:both;text-align:center}
+#b a {color:#000000;text-decoration:none}
+#b a:visited {color:#000000;text-decoration:none}
+#b a:hover {color:#000000;text-decoration:underline}
+.btn {color:#333;background-color:#f8f8f8;border:1px solid #ccc;margin:0 0 4px 10px;padding:3px 6px 3px 6px;border-radius:4px;font-size:1.0em;font-family:arial}
+.cs ul {background: #FFFFFF;}
+.cs ul li {border-bottom: 1px solid #E0E0E0; margin: 0 10px 0 -30px; padding: 8px 0 8px 0; font-size: 20px; font-weight: bold; list-style: none; color:#666666; line-height:24px}
+.cs ul a {text-decoration:none; color:#0000cc}
+.cs ul a:visited {color:#0000cc}
+.cs ul a:active {color:#666666}
+.cs ul a:hover {text-decoration: underline; color:#666666}
+.center{text-align:center;}
+.tb0 {border-spacing:0;border-collapse: separate;}
+.tb5 {border-spacing:5px;border-collapse: separate;}
+.tb10 {border-spacing:10px;border-collapse: separate;}
+.tb15 {border-spacing:15px;border-collapse: separate;}
+.td0 {padding:0}
+.td5 {padding:5px}
+.td10 {padding:5px}
+.w100p {width:100%}
+.w50p {width:50%}
+.w59 {width:59px}
+.b1s {border: 1px solid #888;}
+.fsl {font-size: large}
+.vatop {vertical-align:text-top}
+.pnt {width: 250px;padding: 7px 0 0 0;background: rgba(247, 247, 247, 0.85);border-radius: 5px;box-shadow: 10px 10px 50px rgba(0, 0, 0, 0.29);font-family: Helvetica, Arial, sans-serif;-webkit-transform-origin: 0 10px;transform-origin: 0 10px;}
+.pnt h1 {margin-top: 0;padding: 5px 15px;background: #2aaef5;color: rgba(255, 255, 255, 0.9);font-size: 16px;font-weight: 300;}
+.pnt section {padding: 0 15px 5px;font-size: 14px;}
+.pnt section p {margin: 5px 0;}
+.pnt:after {content: "";position: absolute;top: 7px;left: -13px;width: 0;height: 0;margin-bottom: -13px;border-right: 13px solid #2aaef5;border-top: 13px solid rgba(0, 0, 0, 0);border-bottom: 13px solid rgba(0, 0, 0, 0);}
+</style>
+</head>
+<body onload="xz()">
+<div id="h">
+<div id="l"><a href="/"><img src="/i/getlatlong.png" alt="getLatLong.net Home Page" width="215" height="40"></a></div>
+<div id="nav"><a href="/?r=f&amp;st=faq" title="How to use this latitude and longitude tool."><span class="n0">FAQ</span></a>&nbsp; | &nbsp; <a href="https://www.itouchmap.com/" title="Road maps, satellite views, terrain views, area photos, business/organization finder, and traffic (USA)."><span class="n0">iTouchmap.com</span></a>&nbsp;</div>
+</div>
+<div id="h0"></div>
+<div id="bc"><a href="/">Home</a> &raquo; Latitude and Longitude of a Point</div>
+<div id="o">
+
+<p class="center">
+<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- getLatLong_728x90 -->
+<ins class="adsbygoogle"
+     style="display:inline-block;width:728px;height:90px"
+     data-ad-client="ca-pub-0418728868848218"
+     data-ad-slot="6253542650"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</p>
+
+<p class="center">
+<table class="tb5">
+<tr>
+<td class="cs td0">
+<div class="lb0">
+<table class="tb15">
+<tr>
+<td class="w59"><a href="/"><img src="/i/earth.png" width="59" height="59" alt=""></a></td>
+<td>
+To find the latitude and longitude of a point you can do any of the following...
+<br/><br/>1. <strong>Press and Hold</strong> the <strong>Shift Key</strong> then <strong>Click</strong> on the point on the map.
+<br/>2. <strong>Drag</strong> the red marker.
+<br/>3. Enter the <strong>Address</strong> <input type="text" style="width:300px;font-size:1.0em;" name="address" id="addr" value="123 Street, City State/Country" onfocus="if (this.value == '123 Street, City State/Country'){this.value='';} "> <input type="button" value=" GO " class="btn" onclick='showAddress();'>
+</td>
+</tr>
+</table>
+</div>
+
+<div id="content">
+<h1>Latitude and Longitude of a Point</h1>
+<div id="map" class="b1s" style="width: 780px; height: 500px; margin: 10px 0"></div>
+
+<table class="tb0 w100p">
+<tr>
+<td class="td5 w50p b1s">
+<p class="center"><input type="button" value=" Clear / Reset " class="btn" id="reset" onclick="reset()">
+&nbsp;&nbsp;<input type="button"  class="btn" id="lBB" onclick="rL();" value=" Remove Last Blue Marker "/>&nbsp;&nbsp;
+<input type="button" class="btn" value=" Center Red Marker " id="reset1" onclick="reset1()"></p>
+<hr>
+<h3>Get the Latitude and Longitude of a Point</h3>
+<p>When you click on the map, move the marker or enter an address the latitude and longitude coordinates of the point are inserted in the boxes below.</p>
+<table class="w100p">
+<tr><td>Latitude:</td><td colspan="3"><input size="15" type="text" id="latbox" name="lat" value="" ></td></tr>
+<tr><td >Longitude:</td><td colspan="3"><input size="15" type="text" id="lonbox" name="lon" value="" ></td></tr>
+<tr><td colspan="4"><br><hr></td></tr>
+<tr><td> </td><td><strong>Degrees</strong></td><td><strong>Minutes</strong></td><td><strong>Seconds</strong></td></tr>
+<tr><td>Latitude:</td><td><input size="5" type="text" id="latboxm" name="latm" value="" ></td><td><input size="6" type="text" id="latboxmd" name="latmd" value="" ></td><td><input size="8" type="text" id="latboxms" name="latms" value="" ></td></tr>
+<tr><td >Longitude:</td><td><input size="5" type="text" id="lonboxm" name="lonm" value="" ></td><td><input size="6" type="text" id="lonboxmd" name="lonmd" value="" ></td><td><input size="8" type="text" id="lonboxms" name="lonms" value="" ></td></tr>
+</table>
+<br/>
+<br/>
+</td>
+<td> &nbsp;&nbsp; </td>
+<td class="td5 w50p b1s">
+<h3>Show Point from Latitude and Longitude</h3>
+<p>Use this if you know the latitude and longitude coordinates of a point and want to see where on the map the point is.
+<br><strong>Use:</strong>&nbsp;<strong><span class="fsl">+</span></strong> for <em>N</em> Lat or <em>E</em> Long&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong><span class="fsl">-</span></strong> for <em>S</em> Lat or <em>W</em> Long.<br><strong>Example:</strong> +40.689060&nbsp;&nbsp;-74.044636<br><strong>Note:</strong> Your entry should not have any embedded spaces.</p>
+
+<table class="w100p">
+<tr><td>
+<div class="td5"><label>Decimal Deg. Latitude:</label> &nbsp;&nbsp;&nbsp;&nbsp; <input type="text" size="13" id="latbox1" name="latitude" value=""></div>
+<div class="td5"><label>Decimal Deg. Longitude:</label> &nbsp; <input type="text" size="13" id="lonbox1" name="longitude" value=""></div>
+<div class="w100p center td5"><input type="submit" value=" Show Point " class="btn" onclick='showLatLong();'></div>
+</td></tr>
+</table>
+
+<table class="w100p">
+<tr><td colspan="4"><hr>Example: <strong>+34&nbsp;&nbsp;&nbsp;40&nbsp;&nbsp;&nbsp;50.12</strong>&nbsp;&nbsp;&nbsp;for <em>34N 40' 50.12"</em></td></tr>
+<tr><td> </td><td><strong>Degrees</strong></td><td><strong>Minutes</strong></td><td><strong>Seconds</strong></td></tr>
+<tr><td>Latitude:</td><td><input style="width:50px" type="text" id="latbox1m" name="latm" value="" /></td><td><input style="width:50px" type="text" id="latbox1md" name="latmd" value=""/></td><td><input style="width:50px" type="text" id="latbox1ms" name="latms" value="" /></td></tr>
+<tr><td>Longitude:</td><td><input style="width:50px" type="text" id="lonbox1m" name="lonm" value="" /></td><td><input style="width:50px" type="text" id="lonbox1md" name="lonmd" value="" /></td><td><input style="width:50px" type="text" id="lonbox1ms" name="lonms" value="" /></td></tr>
+<tr><td colspan="4"> &nbsp; </td></tr>
+<tr><td colspan="4" style="text-align:center"><input type="button" class="btn" value=" Show Point "  onclick='showLatLong1();'/></tr>
+</table>
+</td>
+</tr>
+</table>
+</div>
+</td>
+
+
+<td class="as center vatop">
+<script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<!-- getLatLong_160x600 -->
+<ins class="adsbygoogle"
+     style="display:inline-block;width:160px;height:600px"
+     data-ad-client="ca-pub-0418728868848218"
+     data-ad-slot="6441244912"></ins>
+<script>
+(adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+</td>
+
+
+</tr></table>
+</div>
+<div id="b">
+&copy; getLatLong.net 2018 | <a href="/?r=f&amp;st=cd">Credits and Disclaimers</a> | <a href="/?r=f&amp;st=privacy">Privacy Policy</a>
+</div>
+</body>
+</html>
